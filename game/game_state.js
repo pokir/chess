@@ -116,12 +116,12 @@ class GameState {
   }
 
   withMoveApplied(move) {
-    const piece = board[move.originPosition];
+    const piece = this.board[move.originPosition];
     const { pieceKind } = PieceEncoder.unpackPiece(piece);
 
-    const capturedPiece = board[move.destinationPosition];
+    const capturedPiece = this.board[move.destinationPosition];
 
-    const newBoard = board.slice();
+    const newBoard = this.board.slice();
 
     // move the piece and capture
     newBoard[move.originPosition] = PieceEncoder.NO_PIECE;
