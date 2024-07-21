@@ -5,11 +5,11 @@ class GameState {
   static WHITE_KING_SIDE_CASTLE_TARGET_POSITION
     = PositionEncoder.fromAlgebraicNotation('g1');
   static WHITE_QUEEN_SIDE_CASTLE_TARGET_POSITION
-    = PositionEncoder.fromAlgebraicNotation('b1');
+    = PositionEncoder.fromAlgebraicNotation('c1');
   static BLACK_KING_SIDE_CASTLE_TARGET_POSITION
     = PositionEncoder.fromAlgebraicNotation('g8');
   static BLACK_QUEEN_SIDE_CASTLE_TARGET_POSITION
-    = PositionEncoder.fromAlgebraicNotation('b8');
+    = PositionEncoder.fromAlgebraicNotation('c8');
 
   static WHITE_KING_SIDE_ROOK_POSITION
     = PositionEncoder.fromAlgebraicNotation('h1');
@@ -26,7 +26,7 @@ class GameState {
   );
   static WHITE_QUEEN_SIDE_CASTLE_ROOK_MOVE = new Move(
     GameState.WHITE_QUEEN_SIDE_ROOK_POSITION,
-    PositionEncoder.fromAlgebraicNotation('c1')
+    PositionEncoder.fromAlgebraicNotation('d1')
   );
   static BLACK_KING_SIDE_CASTLE_ROOK_MOVE = new Move(
     GameState.BLACK_KING_SIDE_ROOK_POSITION,
@@ -34,7 +34,7 @@ class GameState {
   );
   static BLACK_QUEEN_SIDE_CASTLE_ROOK_MOVE = new Move(
     GameState.BLACK_QUEEN_SIDE_ROOK_POSITION,
-    PositionEncoder.fromAlgebraicNotation('c8')
+    PositionEncoder.fromAlgebraicNotation('d8')
   );
 
   constructor(
@@ -136,7 +136,7 @@ class GameState {
       else // enemy pawn is one cell up
         enemyPawnPosition = this.enPassantTargetPosition - BOARD_SIZE;
 
-      newBoard[enemyPawnPosition] = Piece.NO_PIECE;
+      newBoard[enemyPawnPosition] = PieceEncoder.NO_PIECE;
     }
 
     // handle castling
@@ -146,25 +146,25 @@ class GameState {
       if (this.turn === Piece.pieceColors.WHITE) {
         if (
           this.whiteCanCastleKingSide
-          && move.destinationPosition === WHITE_KING_SIDE_CASTLE_TARGET_POSITION
+          && move.destinationPosition === GameState.WHITE_KING_SIDE_CASTLE_TARGET_POSITION
         )
-          castleRookMove = WHITE_KING_SIDE_CASTLE_ROOK_MOVE;
+          castleRookMove = GameState.WHITE_KING_SIDE_CASTLE_ROOK_MOVE;
         else if (
           this.whiteCanCastleQueenSide
-          && move.destinationPosition === WHITE_QUEEN_SIDE_CASTLE_TARGET_POSITION
+          && move.destinationPosition === GameState.WHITE_QUEEN_SIDE_CASTLE_TARGET_POSITION
         )
-          castleRookMove = WHITE_QUEEN_SIDE_CASTLE_ROOK_MOVE;
+          castleRookMove = GameState.WHITE_QUEEN_SIDE_CASTLE_ROOK_MOVE;
       } else {
         if (
           this.blackCanCastleKingSide
-          && move.destinationPosition === BLACK_KING_SIDE_CASTLE_TARGET_POSITION
+          && move.destinationPosition === GameState.BLACK_KING_SIDE_CASTLE_TARGET_POSITION
         )
-          castleRookMove = BLACK_KING_SIDE_CASTLE_ROOK_MOVE;
+          castleRookMove = GameState.BLACK_KING_SIDE_CASTLE_ROOK_MOVE;
         else if (
           this.blackCanCastleQueenSide
-          && move.destinationPosition === BLACK_QUEEN_SIDE_CASTLE_TARGET_POSITION
+          && move.destinationPosition === GameState.BLACK_QUEEN_SIDE_CASTLE_TARGET_POSITION
         )
-          castleRookMove = BLACK_QUEEN_SIDE_CASTLE_ROOK_MOVE;
+          castleRookMove = GameState.BLACK_QUEEN_SIDE_CASTLE_ROOK_MOVE;
       }
 
       if (castleRookMove !== null) {
@@ -206,6 +206,7 @@ class GameState {
       }
     }
 
+    // set en passant target
     let newEnPassantTargetPosition = null;
 
     if (pieceKind === Piece.pieceKinds.PAWN) {
