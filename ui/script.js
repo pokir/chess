@@ -65,11 +65,11 @@ function setup() {
 function draw() {
   background(255);
 
-  drawChessGrid(gameState, 400, width / 2, height / 2);
+  drawChessBoard(gameState, 400, width / 2, height / 2);
 }
 
 
-function drawChessGrid(gameState, size, centerX, centerY) {
+function drawChessBoard(gameState, size, centerX, centerY) {
   push();
 
   translate(centerX - size / 2, centerY - size / 2);
@@ -100,6 +100,10 @@ function drawChessGrid(gameState, size, centerX, centerY) {
     }
   }
 
-
   pop();
+}
+
+
+function handleUserInput(gameState, size, centerX, centerY) {
+
 }

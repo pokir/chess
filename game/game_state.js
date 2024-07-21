@@ -2,13 +2,15 @@ const BOARD_SIZE = 8;
 
 
 class GameState {
-  static WHITE_KING_SIDE_CASTLE_TARGET_POSITION
+  // TODO: make all these constants private
+
+  static WHITE_KING_SIDE_CASTLE_DESTINATION
     = PositionEncoder.fromAlgebraicNotation('g1');
-  static WHITE_QUEEN_SIDE_CASTLE_TARGET_POSITION
+  static WHITE_QUEEN_SIDE_CASTLE_DESTINATION
     = PositionEncoder.fromAlgebraicNotation('c1');
-  static BLACK_KING_SIDE_CASTLE_TARGET_POSITION
+  static BLACK_KING_SIDE_CASTLE_DESTINATION
     = PositionEncoder.fromAlgebraicNotation('g8');
-  static BLACK_QUEEN_SIDE_CASTLE_TARGET_POSITION
+  static BLACK_QUEEN_SIDE_CASTLE_DESTINATION
     = PositionEncoder.fromAlgebraicNotation('c8');
 
   static WHITE_KING_SIDE_ROOK_POSITION
@@ -36,6 +38,9 @@ class GameState {
     GameState.BLACK_QUEEN_SIDE_ROOK_POSITION,
     PositionEncoder.fromAlgebraicNotation('d8')
   );
+
+  static WHITE_PAWNS_STARTING_Y = 6;
+  static BLACK_PAWNS_STARTING_Y = 1;
 
   constructor(
     board,
@@ -111,8 +116,200 @@ class GameState {
     );
   }
 
-  getLegalMoves() {
-    // TODO: returns all legal move strings
+  cellIsEmpty(position) {
+    // TODO: private
+    return this.board[position] === PieceEncoder.NO_PIECE;
+  }
+
+  cellHasPieceOfColor(position, color) {
+    // TODO: private
+    return !this.cellIsEmpty(position)
+      && PieceEncoder.unpackPiece(this.board[position]).pieceColor === color;
+  }
+
+  getPotentialMovesForPieceAtPosition(position) {
+    // returns all moves for a piece at a given position,
+    // including moves that lead to a check
+    if (this.cellIsEmpty(position)) return [];
+    const piece = this.board[position];
+
+    const { pieceKind, pieceColor } = PieceEncoder.unpackPiece(piece);
+
+    const oppositeColor = pieceColor === Piece.pieceColors.WHITE
+      ? Piece.pieceColors.BLACK
+      : Piece.pieceColors.WHITE;
+
+    const potentialMoves = [];
+
+    const { x, y } = PositionEncoder.toCoordinates(position);
+
+    const getAllMovesInDirections = (directions, singleStep = false) => {
+      const moves = [];
+
+      for (const [ dx, dy ] of directions) {
+        let i = 1;
+        let destinationPosition;
+
+        do {
+          destinationPosition = PositionEncoder.offsetFrom(position, dx * i, dy * i);
+          if (destinationPosition === -1) break;
+
+          if (!this.cellHasPieceOfColor(destinationPosition, pieceColor))
+            moves.push(new Move(position, destinationPosition));
+
+          ++i;
+        } while (!singleStep && this.cellIsEmpty(destinationPosition));
+      }
+
+      return moves;
+    };
+
+    const getRookMoves = (singleStep = false) =>
+      getAllMovesInDirections([[0, -1], [0, 1], [-1, 0], [1, 0]], singleStep);
+
+    const getBishopMoves = (singleStep = false) =>
+      getAllMovesInDirections([[-1, -1], [-1, 1], [1, -1], [1, 1]], singleStep);
+
+    const getQueenMoves = (singleStep = false) =>
+      [...getRookMoves(singleStep), ...getBishopMoves(singleStep)];
+
+    switch (pieceKind) {
+      case Piece.pieceKinds.PAWN:
+        // forwards direction depending on the color of the pawn
+        const dy = pieceColor === Piece.pieceColors.WHITE ? -1 : 1;
+
+        // forwards one cell
+        const forwardsOneCellPosition = PositionEncoder.offsetFrom(position, 0, dy);
+        if (forwardsOneCellPosition !== -1 && this.cellIsEmpty(forwardsOneCellPosition)) {
+          potentialMoves.push(new Move(position, forwardsOneCellPosition));
+
+          // forwards two cells
+          const pawnHasNotMovedYet
+            = (pieceColor === Piece.pieceColors.WHITE && y === GameState.WHITE_PAWNS_STARTING_Y)
+              || (pieceColor === Piece.pieceColors.BLACK && y === GameState.BLACK_PAWNS_STARTING_Y);
+
+          if (pawnHasNotMovedYet) {
+            const forwardsTwoCellsPosition
+              = PositionEncoder.offsetFrom(forwardsOneCellPosition, 0, dy);
+
+            if (this.cellIsEmpty(forwardsTwoCellsPosition))
+              potentialMoves.push(new Move(position, forwardsTwoCellsPosition));
+          }
+        }
+
+        // diagonal moves and en passant
+        const diagonalPositions = [
+          PositionEncoder.leftFrom(forwardsOneCellPosition),
+          PositionEncoder.rightFrom(forwardsOneCellPosition)
+        ].filter(position => position !== -1)
+          .filter(
+          position => position === this.enPassantTargetPosition
+            || this.cellHasPieceOfColor(position, oppositeColor)
+        );
+
+        for (const destinationPosition of diagonalPositions) {
+          potentialMoves.push(new Move(position, destinationPosition));
+        }
+
+        break;
+      case Piece.pieceKinds.ROOK:
+        potentialMoves.push(...getRookMoves());
+        break;
+      case Piece.pieceKinds.KNIGHT:
+        potentialMoves.push(...getAllMovesInDirections([
+          [-1, -2],
+          [1, -2],
+          [2, -1],
+          [2, 1],
+          [1, 2],
+          [-1, 2],
+          [-2, 1],
+          [-2, -1]
+        ], true));
+        break;
+      case Piece.pieceKinds.BISHOP:
+        potentialMoves.push(...getBishopMoves());
+        break;
+      case Piece.pieceKinds.QUEEN:
+        potentialMoves.push(...getQueenMoves());
+        break;
+      case Piece.pieceKinds.KING:
+        potentialMoves.push(...getQueenMoves(true));
+
+        // castling moves
+        const canCastleKingSide = pieceColor === Piece.pieceColors.WHITE
+          ? this.whiteCanCastleKingSide
+          : this.blackCanCastleKingSide;
+
+        const canCastleQueenSide = pieceColor === Piece.pieceColors.WHITE
+          ? this.whiteCanCastleQueenSide
+          : this.blackCanCastleQueenSide;
+
+        if (canCastleKingSide) {
+          const destinationPosition = PositionEncoder.offsetFrom(position, 2, 0);
+
+          const inBetweenCellsPositions = [
+            PositionEncoder.rightFrom(position),
+            destinationPosition
+          ];
+
+          if (inBetweenCellsPositions.every(position => this.cellIsEmpty(position)))
+            potentialMoves.push(new Move(position, destinationPosition));
+        }
+
+        if (canCastleQueenSide) {
+          const destinationPosition = PositionEncoder.offsetFrom(position, -2, 0);
+
+          const inBetweenCellsPositions = [
+            PositionEncoder.leftFrom(position),
+            destinationPosition,
+            PositionEncoder.leftFrom(destinationPosition)
+          ];
+
+          if (inBetweenCellsPositions.every(position => this.cellIsEmpty(position)))
+            potentialMoves.push(new Move(position, destinationPosition));
+        }
+
+        break;
+    }
+
+    return potentialMoves;
+  }
+
+  getPotentialMovesForColor(color) {
+    // get all potential moves for the given color
+    const potentialMoves = [];
+
+    for (let position = 0; position < this.board.length; ++position) {
+      if (this.cellHasPieceOfColor(position, color))
+        potentialMoves.push(
+          ...this.getPotentialMovesForPieceAtPosition(position)
+        );
+    }
+
+    return potentialMoves;
+  }
+
+  isChecked(color) {
+    // whether the king of the given color is checked or not
+    const oppositeColor = color === Piece.pieceColors.WHITE
+      ? Piece.pieceColors.BLACK
+      : Piece.pieceColors.WHITE;
+
+    const potentialMoves = this.getPotentialMovesForColor(oppositeColor);
+
+    const king = PieceEncoder.packPiece(Piece.pieceKinds.KING, color);
+
+    return potentialMoves.some(
+      move => this.board[move.destinationPosition] === king
+    );
+  }
+
+  getLegalMovesForColor(color) {
+    // filter the potential moves by moves that don't lead to a check if played
+    return this.getPotentialMovesForColor(color).filter(move =>
+      !this.withMoveApplied(move).isChecked(color)
+    );
   }
 
   withMoveApplied(move) {
@@ -128,41 +325,45 @@ class GameState {
     newBoard[move.destinationPosition] = piece;
 
     // capture en passant
-    if (move.destinationPosition === this.enPassantTargetPosition) {
+    if (
+      pieceKind === Piece.pieceKinds.PAWN
+      && move.destinationPosition === this.enPassantTargetPosition
+    ) {
       let enemyPawnPosition;
 
       if (this.turn === Piece.pieceColors.WHITE) // enemy pawn is one cell down
-        enemyPawnPosition = this.enPassantTargetPosition + BOARD_SIZE;
+        enemyPawnPosition = PositionEncoder.downFrom(this.enPassantTargetPosition);
       else // enemy pawn is one cell up
-        enemyPawnPosition = this.enPassantTargetPosition - BOARD_SIZE;
+        enemyPawnPosition = PositionEncoder.upFrom(this.enPassantTargetPosition);
 
       newBoard[enemyPawnPosition] = PieceEncoder.NO_PIECE;
     }
 
     // handle castling
+    // TODO: redo with relative position offsets
     if (pieceKind === Piece.pieceKinds.KING) {
       let castleRookMove = null;
 
       if (this.turn === Piece.pieceColors.WHITE) {
         if (
           this.whiteCanCastleKingSide
-          && move.destinationPosition === GameState.WHITE_KING_SIDE_CASTLE_TARGET_POSITION
+          && move.destinationPosition === GameState.WHITE_KING_SIDE_CASTLE_DESTINATION
         )
           castleRookMove = GameState.WHITE_KING_SIDE_CASTLE_ROOK_MOVE;
         else if (
           this.whiteCanCastleQueenSide
-          && move.destinationPosition === GameState.WHITE_QUEEN_SIDE_CASTLE_TARGET_POSITION
+          && move.destinationPosition === GameState.WHITE_QUEEN_SIDE_CASTLE_DESTINATION
         )
           castleRookMove = GameState.WHITE_QUEEN_SIDE_CASTLE_ROOK_MOVE;
       } else {
         if (
           this.blackCanCastleKingSide
-          && move.destinationPosition === GameState.BLACK_KING_SIDE_CASTLE_TARGET_POSITION
+          && move.destinationPosition === GameState.BLACK_KING_SIDE_CASTLE_DESTINATION
         )
           castleRookMove = GameState.BLACK_KING_SIDE_CASTLE_ROOK_MOVE;
         else if (
           this.blackCanCastleQueenSide
-          && move.destinationPosition === GameState.BLACK_QUEEN_SIDE_CASTLE_TARGET_POSITION
+          && move.destinationPosition === GameState.BLACK_QUEEN_SIDE_CASTLE_DESTINATION
         )
           castleRookMove = GameState.BLACK_QUEEN_SIDE_CASTLE_ROOK_MOVE;
       }
@@ -173,6 +374,10 @@ class GameState {
         newBoard[castleRookMove.destinationPosition] = rookPiece;
       }
     }
+
+    // TODO: pawn promotion
+    //       (pass the piece to promote to as argument to this method,
+    //       or as part of the move)
 
     // update castling rights
     let newWhiteCanCastleKingSide = this.whiteCanCastleKingSide;
@@ -210,14 +415,14 @@ class GameState {
     let newEnPassantTargetPosition = null;
 
     if (pieceKind === Piece.pieceKinds.PAWN) {
-      const originY = move.originPosition / BOARD_SIZE;
-      const destinationY = move.destinationPosition / BOARD_SIZE;
+      const { y: originY } = PositionEncoder.toCoordinates(move.originPosition);
+      const { y: destinationY } = PositionEncoder.toCoordinates(move.destinationPosition);
 
       if (Math.abs(destinationY - originY) === 2) {
         if (this.turn === Piece.pieceColors.WHITE)
-          newEnPassantTargetPosition = move.destinationPosition + BOARD_SIZE;
+          newEnPassantTargetPosition = PositionEncoder.downFrom(move.destinationPosition);
         else
-          newEnPassantTargetPosition = move.destinationPosition - BOARD_SIZE;
+          newEnPassantTargetPosition = PositionEncoder.upFrom(move.destinationPosition);
       }
     }
 
@@ -226,7 +431,7 @@ class GameState {
       : Piece.pieceColors.WHITE;
 
     const newHalfMoves = (
-      capturedPiece!== PieceEncoder.NO_PIECE
+      !this.cellIsEmpty(move.destinationPosition)
       || pieceKind === Piece.pieceKinds.PAWN
     ) 
       ? 0
