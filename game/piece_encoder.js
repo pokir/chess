@@ -1,12 +1,12 @@
 class PieceEncoder {
+  static NO_PIECE = 0;
+
   static packPiece(pieceKind, pieceColor) {
-    return (
-      (
-        pieceKind === Piece.pieceKinds.NO_PIECE
-          ? Piece.pieceColors.WHITE
-          : pieceColor
-      ) << 3
-    ) | pieceKind;
+    return (pieceColor << 3) | pieceKind;
+  }
+
+  static unpackPiece(packedPiece) {
+    return {pieceKind: packedPiece & 0b111, pieceColor: packedPiece >> 3};
   }
 
   static fromPieceCharacter(pieceCharacter) {

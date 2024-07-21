@@ -1,6 +1,5 @@
 class Piece {
   static pieceKinds = {
-    NO_PIECE: 0,
     PAWN: 1,
     KNIGHT: 2,
     BISHOP: 3,
