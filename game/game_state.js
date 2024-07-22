@@ -4,15 +4,6 @@ const BOARD_SIZE = 8;
 class GameState {
   // TODO: make all these constants private
 
-  static WHITE_KING_SIDE_CASTLE_DESTINATION
-    = PositionEncoder.fromAlgebraicNotation('g1');
-  static WHITE_QUEEN_SIDE_CASTLE_DESTINATION
-    = PositionEncoder.fromAlgebraicNotation('c1');
-  static BLACK_KING_SIDE_CASTLE_DESTINATION
-    = PositionEncoder.fromAlgebraicNotation('g8');
-  static BLACK_QUEEN_SIDE_CASTLE_DESTINATION
-    = PositionEncoder.fromAlgebraicNotation('c8');
-
   static WHITE_KING_SIDE_ROOK_POSITION
     = PositionEncoder.fromAlgebraicNotation('h1');
   static WHITE_QUEEN_SIDE_ROOK_POSITION
@@ -21,23 +12,6 @@ class GameState {
     = PositionEncoder.fromAlgebraicNotation('h8');
   static BLACK_QUEEN_SIDE_ROOK_POSITION
     = PositionEncoder.fromAlgebraicNotation('a8');
-
-  static WHITE_KING_SIDE_CASTLE_ROOK_MOVE = new Move(
-    GameState.WHITE_KING_SIDE_ROOK_POSITION,
-    PositionEncoder.fromAlgebraicNotation('f1')
-  );
-  static WHITE_QUEEN_SIDE_CASTLE_ROOK_MOVE = new Move(
-    GameState.WHITE_QUEEN_SIDE_ROOK_POSITION,
-    PositionEncoder.fromAlgebraicNotation('d1')
-  );
-  static BLACK_KING_SIDE_CASTLE_ROOK_MOVE = new Move(
-    GameState.BLACK_KING_SIDE_ROOK_POSITION,
-    PositionEncoder.fromAlgebraicNotation('f8')
-  );
-  static BLACK_QUEEN_SIDE_CASTLE_ROOK_MOVE = new Move(
-    GameState.BLACK_QUEEN_SIDE_ROOK_POSITION,
-    PositionEncoder.fromAlgebraicNotation('d8')
-  );
 
   static WHITE_PAWNS_STARTING_Y = 6;
   static BLACK_PAWNS_STARTING_Y = 1;
@@ -332,7 +306,7 @@ class GameState {
 
   withMoveApplied(move) {
     const piece = this.board[move.originPosition];
-    const { pieceKind } = PieceEncoder.unpackPiece(piece);
+    const { pieceKind, pieceColor } = PieceEncoder.unpackPiece(piece);
 
     const capturedPiece = this.board[move.destinationPosition];
 
@@ -351,7 +325,7 @@ class GameState {
     ) {
       let enemyPawnPosition;
 
-      if (this.turn === Piece.pieceColors.WHITE) // enemy pawn is one cell down
+      if (pieceColor === Piece.pieceColors.WHITE) // enemy pawn is one cell down
         enemyPawnPosition = PositionEncoder.downFrom(this.enPassantTargetPosition);
       else // enemy pawn is one cell up
         enemyPawnPosition = PositionEncoder.upFrom(this.enPassantTargetPosition);
@@ -360,32 +334,21 @@ class GameState {
     }
 
     // handle castling
-    // TODO: redo with relative position offsets
     if (pieceKind === Piece.pieceKinds.KING) {
       let castleRookMove = null;
 
-      if (this.turn === Piece.pieceColors.WHITE) {
-        if (
-          this.whiteCanCastleKingSide
-          && move.destinationPosition === GameState.WHITE_KING_SIDE_CASTLE_DESTINATION
-        )
-          castleRookMove = GameState.WHITE_KING_SIDE_CASTLE_ROOK_MOVE;
-        else if (
-          this.whiteCanCastleQueenSide
-          && move.destinationPosition === GameState.WHITE_QUEEN_SIDE_CASTLE_DESTINATION
-        )
-          castleRookMove = GameState.WHITE_QUEEN_SIDE_CASTLE_ROOK_MOVE;
-      } else {
-        if (
-          this.blackCanCastleKingSide
-          && move.destinationPosition === GameState.BLACK_KING_SIDE_CASTLE_DESTINATION
-        )
-          castleRookMove = GameState.BLACK_KING_SIDE_CASTLE_ROOK_MOVE;
-        else if (
-          this.blackCanCastleQueenSide
-          && move.destinationPosition === GameState.BLACK_QUEEN_SIDE_CASTLE_DESTINATION
-        )
-          castleRookMove = GameState.BLACK_QUEEN_SIDE_CASTLE_ROOK_MOVE;
+      if (move.destinationPosition === PositionEncoder.offsetFrom(move.originPosition, 2, 0)) {
+        // castle king side
+        castleRookMove = new Move(
+          PositionEncoder.offsetFrom(move.originPosition, 3, 0),
+          PositionEncoder.offsetFrom(move.originPosition, 1, 0)
+        );
+      } else if (move.destinationPosition === PositionEncoder.offsetFrom(move.originPosition, -2, 0)) {
+        // castle queen side
+        castleRookMove = new Move(
+          PositionEncoder.offsetFrom(move.originPosition, -4, 0),
+          PositionEncoder.offsetFrom(move.originPosition, -1, 0)
+        );
       }
 
       if (castleRookMove !== null) {
@@ -401,7 +364,7 @@ class GameState {
     let newBlackCanCastleKingSide = this.blackCanCastleKingSide;
     let newBlackCanCastleQueenSide = this.blackCanCastleQueenSide;
 
-    if (this.turn === Piece.pieceColors.WHITE) {
+    if (pieceColor === Piece.pieceColors.WHITE) {
       if (pieceKind === Piece.pieceKinds.KING) {
         newWhiteCanCastleKingSide = false;
         newWhiteCanCastleQueenSide = false;
@@ -435,7 +398,7 @@ class GameState {
       const { y: destinationY } = PositionEncoder.toCoordinates(move.destinationPosition);
 
       if (Math.abs(destinationY - originY) === 2) {
-        if (this.turn === Piece.pieceColors.WHITE)
+        if (pieceColor === Piece.pieceColors.WHITE)
           newEnPassantTargetPosition = PositionEncoder.downFrom(move.destinationPosition);
         else
           newEnPassantTargetPosition = PositionEncoder.upFrom(move.destinationPosition);
