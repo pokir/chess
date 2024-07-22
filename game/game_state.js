@@ -180,8 +180,22 @@ class GameState {
 
         // forwards one cell
         const forwardsOneCellPosition = PositionEncoder.offsetFrom(position, 0, dy);
+
         if (forwardsOneCellPosition !== -1 && this.cellIsEmpty(forwardsOneCellPosition)) {
-          potentialMoves.push(new Move(position, forwardsOneCellPosition));
+          const willGetPromoted = pieceColor === Piece.pieceColors.WHITE
+            ? y === GameState.BLACK_PAWNS_STARTING_Y
+            : y === GameState.WHITE_PAWNS_STARTING_Y;
+
+          if (willGetPromoted)
+            for (const promotedPiece of [
+              Piece.pieceKinds.KNIGHT,
+              Piece.pieceKinds.BISHOP,
+              Piece.pieceKinds.ROOK,
+              Piece.pieceKinds.QUEEN
+            ])
+              potentialMoves.push(new Move(position, forwardsOneCellPosition, promotedPiece));
+          else
+            potentialMoves.push(new Move(position, forwardsOneCellPosition));
 
           // forwards two cells
           const pawnHasNotMovedYet
@@ -290,7 +304,7 @@ class GameState {
     return potentialMoves;
   }
 
-  isChecked(color) {
+  isCheck(color) {
     // whether the king of the given color is checked or not
     const oppositeColor = color === Piece.pieceColors.WHITE
       ? Piece.pieceColors.BLACK
@@ -308,8 +322,12 @@ class GameState {
   getLegalMovesForColor(color) {
     // filter the potential moves by moves that don't lead to a check if played
     return this.getPotentialMovesForColor(color).filter(move =>
-      !this.withMoveApplied(move).isChecked(color)
+      !this.withMoveApplied(move).isCheck(color)
     );
+  }
+
+  isCheckMate(color) {
+    return isCheck(color) && this.getLegalMovesForColor(color).length === 0;
   }
 
   withMoveApplied(move) {
@@ -322,7 +340,9 @@ class GameState {
 
     // move the piece and capture
     newBoard[move.originPosition] = PieceEncoder.NO_PIECE;
-    newBoard[move.destinationPosition] = piece;
+    newBoard[move.destinationPosition] = move.promotedPiece !== null
+      ? move.promotedPiece
+      : piece;
 
     // capture en passant
     if (
@@ -374,10 +394,6 @@ class GameState {
         newBoard[castleRookMove.destinationPosition] = rookPiece;
       }
     }
-
-    // TODO: pawn promotion
-    //       (pass the piece to promote to as argument to this method,
-    //       or as part of the move)
 
     // update castling rights
     let newWhiteCanCastleKingSide = this.whiteCanCastleKingSide;
