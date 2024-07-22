@@ -300,6 +300,10 @@ class GameState {
     );
   }
 
+  isStaleMate(color) {
+    return !isCheck(color) && this.getLegalMovesForColor(color).length === 0;
+  }
+
   isCheckMate(color) {
     return isCheck(color) && this.getLegalMovesForColor(color).length === 0;
   }
