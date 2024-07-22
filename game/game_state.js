@@ -264,20 +264,6 @@ class GameState {
     return potentialMoves;
   }
 
-  getPotentialMovesForColor(color) {
-    // get all potential moves for the given color
-    const potentialMoves = [];
-
-    for (let position = 0; position < this.board.length; ++position) {
-      if (this.cellHasPieceOfColor(position, color))
-        potentialMoves.push(
-          ...this.getPotentialMovesForPieceAtPosition(position)
-        );
-    }
-
-    return potentialMoves;
-  }
-
   isCheck(color) {
     // whether the king of the given color is checked or not
     const oppositeColor = color === Piece.pieceColors.WHITE
@@ -293,6 +279,20 @@ class GameState {
     );
   }
 
+  getPotentialMovesForColor(color) {
+    // get all potential moves for the given color
+    const potentialMoves = [];
+
+    for (let position = 0; position < this.board.length; ++position) {
+      if (this.cellHasPieceOfColor(position, color))
+        potentialMoves.push(
+          ...this.getPotentialMovesForPieceAtPosition(position)
+        );
+    }
+
+    return potentialMoves;
+  }
+
   getLegalMovesForColor(color) {
     // filter the potential moves by moves that don't lead to a check if played
     return this.getPotentialMovesForColor(color).filter(move =>
@@ -300,12 +300,20 @@ class GameState {
     );
   }
 
+  getLegalMovesForPieceAtPosition(position) {
+    const { pieceColor } = PieceEncoder.unpackPiece(this.board[position]);
+
+    return this.getPotentialMovesForPieceAtPosition(position).filter(move =>
+      !this.withMoveApplied(move).isCheck(pieceColor)
+    );
+  }
+
   isStaleMate(color) {
-    return !isCheck(color) && this.getLegalMovesForColor(color).length === 0;
+    return !this.isCheck(color) && this.getLegalMovesForColor(color).length === 0;
   }
 
   isCheckMate(color) {
-    return isCheck(color) && this.getLegalMovesForColor(color).length === 0;
+    return this.isCheck(color) && this.getLegalMovesForColor(color).length === 0;
   }
 
   withMoveApplied(move) {
@@ -319,7 +327,7 @@ class GameState {
     // move the piece and capture
     newBoard[move.originPosition] = PieceEncoder.NO_PIECE;
     newBoard[move.destinationPosition] = move.promotedPiece !== null
-      ? move.promotedPiece
+      ? PieceEncoder.packPiece(move.promotedPiece, pieceColor)
       : piece;
 
     // capture en passant

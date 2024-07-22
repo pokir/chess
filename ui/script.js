@@ -53,28 +53,46 @@ function preload() {
 
 
 let gameState;
+let boardSize = 400;
+let centerX;
+let centerY;
+let selectedPiecePosition = null;
+
+let gameOver = false;
+let endGameMessage = null;
+let endGameMessageShown = false;
 
 
 function setup() {
   createCanvas(600, 600);
 
   gameState = GameState.getInitialState();
+
+  centerX = width / 2;
+  centerY = height / 2;
 }
 
 
 function draw() {
   background(255);
 
-  drawChessBoard(gameState, 400, width / 2, height / 2);
+  drawChessBoard();
+
+  if (gameOver && !endGameMessageShown) {
+    // show the alert after updating the board
+    setTimeout(alert, 0, endGameMessage);
+
+    endGameMessageShown = true;
+  }
 }
 
 
-function drawChessBoard(gameState, size, centerX, centerY) {
+function drawChessBoard() {
   push();
 
-  translate(centerX - size / 2, centerY - size / 2);
+  translate(centerX - boardSize / 2, centerY - boardSize / 2);
 
-  const cellSize = size / 8;
+  const cellSize = boardSize / 8;
 
   rectMode(CORNER);
   imageMode(CORNER);
@@ -90,13 +108,26 @@ function drawChessBoard(gameState, size, centerX, centerY) {
       const pixelY = y * cellSize;
       rect(pixelX, pixelY, cellSize);
 
-      // draw the piece
-      const chessPiece = gameState.board[PositionEncoder.fromCoordinates(x, y)];
+      const position = PositionEncoder.fromCoordinates(x, y);
 
-      if (chessPiece === PieceEncoder.NO_PIECE) continue;
+      const piece = gameState.board[position];
+      const { pieceKind, pieceColor } = PieceEncoder.unpackPiece(piece);
 
-      const chessPieceImage = chessPieceImages[chessPiece];
-      image(chessPieceImage, pixelX, pixelY, cellSize, cellSize);
+      if (position === selectedPiecePosition) {
+        // highlight the cell in green if it is selected
+        fill(0, 200, 0, 128);
+        rect(pixelX, pixelY, cellSize);
+      } else if (pieceKind === Piece.pieceKinds.KING && gameState.isCheck(pieceColor)) {
+        // highlight the king's cell in red if it is checked
+        fill(200, 0, 0, 128);
+        rect(pixelX, pixelY, cellSize);
+      }
+
+      if (piece !== PieceEncoder.NO_PIECE) {
+        // draw the piece
+        const pieceImage = chessPieceImages[piece];
+        image(pieceImage, pixelX, pixelY, cellSize, cellSize);
+      }
     }
   }
 
@@ -104,6 +135,64 @@ function drawChessBoard(gameState, size, centerX, centerY) {
 }
 
 
-function handleUserInput(gameState, size, centerX, centerY) {
+function mousePressed() {
+  const cellSize = boardSize / 8;
 
+  const x = Math.floor((mouseX - (centerX - boardSize / 2)) / cellSize);
+  const y = Math.floor((mouseY - (centerY - boardSize / 2)) / cellSize);
+
+  const position = PositionEncoder.fromCoordinates(x, y);
+
+  if (
+    gameState.cellHasPieceOfColor(position, gameState.turn)
+    && gameState.getLegalMovesForPieceAtPosition(position).length !== 0
+  ) {
+    selectedPiecePosition = position;
+  } else if (selectedPiecePosition !== null) {
+    const selectedLegalMoves
+      = gameState.getLegalMovesForPieceAtPosition(selectedPiecePosition)
+          .filter(
+            legalMove => legalMove.originPosition === selectedPiecePosition
+              && legalMove.destinationPosition === position
+          );
+
+    let move;
+
+    if (selectedLegalMoves.length === 1) {
+      move = selectedLegalMoves[0];
+    } else if (selectedLegalMoves.length > 0) {
+      // chose the piece to promote the pawn to
+      const promotedPieceString = prompt('Piece to promote to (B, N, R, Q):');
+      const promotedPiece = {
+        'B': Piece.pieceKinds.BISHOP,
+        'N': Piece.pieceKinds.KNIGHT,
+        'R': Piece.pieceKinds.ROOK,
+        'Q': Piece.pieceKinds.QUEEN
+      }[promotedPieceString];
+
+      move = selectedLegalMoves.find(
+        legalMove => legalMove.promotedPiece === promotedPiece
+      );
+    }
+
+    if (move) {
+      gameState = gameState.withMoveApplied(move);
+      selectedPiecePosition = null;
+
+      // check for end of game
+      if (gameState.isStaleMate(Piece.pieceColors.WHITE)) {
+        gameOver = true;
+        endGameMessage = 'Stalemate! Black won.';
+      } else if (gameState.isStaleMate(Piece.pieceColors.BLACK)) {
+        gameOver = true;
+        endGameMessage = 'Stalemate! White won.';
+      } else if (gameState.isCheckMate(Piece.pieceColors.WHITE)) {
+        gameOver = true;
+        endGameMessage = 'Checkmate! Black won.';
+      } else if (gameState.isCheckMate(Piece.pieceColors.BLACK)) {
+        gameOver = true;
+        endGameMessage = 'Checkmate! White won.';
+      }
+    }
+  }
 }
