@@ -180,12 +180,12 @@ function mousePressed() {
       selectedPiecePosition = null;
 
       // check for end of game
-      if (gameState.isStaleMate(Piece.pieceColors.WHITE)) {
+      if (
+        gameState.isStaleMate(Piece.pieceColors.WHITE)
+        || gameState.isStaleMate(Piece.pieceColors.BLACK)
+      ) {
         gameOver = true;
-        endGameMessage = 'Stalemate! Black won.';
-      } else if (gameState.isStaleMate(Piece.pieceColors.BLACK)) {
-        gameOver = true;
-        endGameMessage = 'Stalemate! White won.';
+        endGameMessage = 'Stalemate! Draw.';
       } else if (gameState.isCheckMate(Piece.pieceColors.WHITE)) {
         gameOver = true;
         endGameMessage = 'Checkmate! Black won.';
